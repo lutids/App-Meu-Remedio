@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="description" content="Aplicativo para gerenciar medicamentos com lembretes">
+    <link rel="manifest" href="manifest.json">
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js'></script>
+    <title>Meu Remédio</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; margin-bottom: 20px; }
+        .header h1 { color: #4CAF50; font-size: 2em; margin-bottom: 10px; }
+        .header p { color: #666; font-size: 1.1em; }
+        .card { background: white; border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .btn { width: 100%; padding: 18px; border: none; border-radius: 12px; font-size: 1.2em; font-weight: bold; cursor: pointer; margin-bottom: 15px; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-primary { background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4); }
+        .btn-secondary { background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: white; }
+        .btn-secondary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        input[type="file"] { display: none; }
+        .preview-container { margin-top: 20px; display: none; }
+        .preview-img { width: 100%; border-radius: 12px; margin-bottom: 15px; }
+        .medication-list { margin-top: 20px; }
+        .medication-item { background: #f5f5f5; padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 5px solid #4CAF50; position: relative; }
+        .medication-item h3 { color: #4CAF50; margin-bottom: 10px; font-size: 1.3em; }
+        .medication-item p { color: #666; margin: 8px 0; font-size: 1.05em; line-height: 1.6; }
+        .medication-item strong { color: #333; }
+        .delete-btn { position: absolute; top: 15px; right: 15px; background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 0.9em; }
+        .delete-btn:hover { background: #d32f2f; }
+        .edit-btn { background: #2196F3; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 0.9em; margin-right: 10px; }
+        .edit-btn:hover { background: #1976D2; }
+        .empty-state { text-align: center; padding: 40px 20px; color: #999; }
+        .loading { text-align: center; padding: 20px; color: #666; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #4CAF50; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .notification-status { background: #fff3cd; border: 2px solid #ffc107; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; color: #856404; }
+        .notification-enabled { background: #d4edda; border-color: #28a745; color: #155724; }
+        .icon { font-size: 1.5em; }
+        .manual-form { display: none; margin-top: 20px; padding: 20px; background: #f5f5f5; border-radius: 12px; }
+        .manual-form.active { display: block; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; color: #333; font-weight: bold; margin-bottom: 5px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; font-family: inherit; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #4CAF50; }
+        .time-inputs { display: flex; gap: 10px; flex-wrap: wrap; }
+        .time-input-wrapper { display: flex; align-items: center; gap: 10px; background: white; padding: 10px; border-radius: 8px; flex: 1; min-width: 150px; }
+        .time-input-wrapper input[type="time"] { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 6px; }
+        .remove-time { background: #f44336; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.9em; }
+        .add-time { background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .history-section { margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 8px; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 8px; background: white; border-radius: 6px; border-left: 3px solid #4CAF50; }
+        .history-item.pending { border-left-color: #ffc107; opacity: 0.7; }
+        .history-item.taken { border-left-color: #4CAF50; }
+        .history-item.missed { border-left-color: #f44336; }
+        .history-time { font-weight: bold; color: #333; }
+        .history-status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold; }
+        .status-taken { background: #4CAF50; color: white; }
+        .status-pending { background: #ffc107; color: #333; }
+        .status-missed { background: #f44336; color: white; }
+        .mark-taken-btn { background: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+        .alarm-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; }
+        .alarm-modal.active { display: flex; }
+        .alarm-content { background: white; padding: 30px; border-radius: 20px; max-width: 400px; width: 90%; text-align: center; animation: pulse 0.5s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        .alarm-content h2 { color: #4CAF50; font-size: 2em; margin-bottom: 20px; }
+        .alarm-content p { color: #666; font-size: 1.2em; margin-bottom: 30px; line-height: 1.6; }
+        .alarm-actions { display: flex; flex-direction: column; gap: 10px; }
+        .alarm-btn { padding: 15px; border: none; border-radius: 12px; font-size: 1.1em; font-weight: bold; cursor: pointer; transition: transform 0.2s; }
+        .alarm-btn:active { transform: scale(0.95); }
+        .alarm-btn-taken { background: #4CAF50; color: white; }
+        .alarm-btn-snooze { background: #2196F3; color: white; }
+        .alarm-btn-dismiss { background: #999; color: white; }
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .header h1 { font-size: 1.6em; }
+            .btn { font-size: 1.1em; padding: 16px; }
+            .time-input-wrapper { min-width: 100%; }
+            .alarm-content { padding: 20px; }
+            .alarm-content h2 { font-size: 1.5em; }
+        }
+        .install-prompt { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
+        .install-prompt button { background: white; color: #667eea; border: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💊 Meu Remédio</h1>
+            <p>Seu assistente pessoal de medicamentos</p>
+        </div>
+
+        <div id="installPrompt" class="install-prompt" style="display: none;">
+            <p><strong>📱 Instale o app</strong></p>
+            <p>Adicione à tela inicial para receber notificações</p>
+            <button onclick="installApp()">Instalar Agora</button>
+        </div>
+
+        <div id="notificationStatus" class="notification-status">
+            <p>🔔 Permita notificações para receber lembretes</p>
+            <button class="btn btn-secondary" onclick="requestNotificationPermission()" style="margin-top: 10px;">Ativar Notificações</button>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-bottom: 20px; color: #4CAF50;">📸 Adicionar Medicamento</h2>
+            <input type="file" id="cameraInput" accept="image/*" capture="environment">
+            <button class="btn btn-primary" onclick="document.getElementById('cameraInput').click()"><span class="icon">📷</span>Tirar Foto da Receita</button>
+            <input type="file" id="galleryInput" accept="image/*">
+            <button class="btn btn-secondary" onclick="document.getElementById('galleryInput').click()"><span class="icon">🖼️</span>Escolher da Galeria</button>
+            <button class="btn btn-secondary" onclick="toggleManualForm()"><span class="icon">✏️</span>Adicionar Manualmente</button>
+            <div id="previewContainer" class="preview-container">
+                <img id="previewImg" class="preview-img" alt="Preview">
+                <button class="btn btn-primary" onclick="processImage()"><span class="icon">🔍</span>Processar Receita</button>
+            </div>
+            <div id="manualForm" class="manual-form">
+                <h3 style="color: #4CAF50; margin-bottom: 15px;">📝 Adicionar Medicamento</h3>
+                <div class="form-group"><label for="medName">Nome do Medicamento *</label><input type="text" id="medName" placeholder="Ex: Paracetamol" required></div>
+                <div class="form-group"><label for="medDosage">Dosagem *</label><input type="text" id="medDosage" placeholder="Ex: 1 comprimido ou 500mg" required></div>
+                <div class="form-group"><label for="medFrequency">Frequência *</label><select id="medFrequency" onchange="updateTimeInputs()"><option value="8h">A cada 8 horas (3x ao dia)</option><option value="12h">A cada 12 horas (2x ao dia)</option><option value="6h">A cada 6 horas (4x ao dia)</option><option value="24h">Uma vez ao dia</option><option value="custom">Personalizado</option></select></div>
+                <div class="form-group"><label>Horários dos Alarmes *</label><div id="timeInputs" class="time-inputs"></div><button type="button" class="add-time" onclick="addTimeInput()">+ Adicionar Horário</button></div>
+                <div class="form-group"><label for="medDuration">Duração do Tratamento *</label><input type="text" id="medDuration" placeholder="Ex: 7 dias ou 2 semanas" required></div>
+                <div class="form-group"><label for="medStartDate">Data de Início</label><input type="date" id="medStartDate"></div>
+                <div class="form-group"><label for="medNotes">Observações</label><textarea id="medNotes" rows="3" placeholder="Ex: Tomar com água, após as refeições"></textarea></div>
+                <button class="btn btn-primary" onclick="saveManualMedication()"><span class="icon">💾</span>Salvar Medicamento</button>
+                <button class="btn" style="background: #999; color: white;" onclick="toggleManualForm()">Cancelar</button>
+            </div>
+            <div id="loading" class="loading" style="display: none;"><div class="spinner"></div><p>Processando receita...</p></div>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-bottom: 20px; color: #4CAF50;">📋 Meus Medicamentos</h2>
+            <div id="medicationList" class="medication-list"><div class="empty-state"><p style="font-size: 3em;">💊</p><p>Nenhum medicamento cadastrado ainda</p><p style="font-size: 0.9em; margin-top: 10px;">Tire uma foto da sua receita para começar</p></div></div>
+        </div>
+
+        <div id="alarmModal" class="alarm-modal">
+            <div class="alarm-content">
+                <h2>⏰ Hora do Remédio!</h2>
+                <p id="alarmMedName" style="font-size: 1.5em; color: #4CAF50; font-weight: bold;"></p>
+                <p id="alarmMedDosage"></p>
+                <p id="alarmMedNotes" style="font-size: 0.9em; color: #999;"></p>
+                <div class="alarm-actions">
+                    <button class="alarm-btn alarm-btn-taken" onclick="markAsTaken()">✅ Tomei o Remédio</button>
+                    <button class="alarm-btn alarm-btn-snooze" onclick="snoozeAlarm(10)">⏰ Adiar 10 minutos</button>
+                    <button class="alarm-btn alarm-btn-snooze" onclick="snoozeAlarm(30)">⏰ Adiar 30 minutos</button>
+                    <button class="alarm-btn alarm-btn-dismiss" onclick="dismissAlarm()">Dispensar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="alarmSound" preload="auto"><source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUKnl8bVlHQY2kdry1H8sBSh+zPLaizsKGGS66+uoVxYKQ5Tf8sNrIAUqf9D02Ys5CRpt/PC0aBwHO5ff8tyCLQYoffHz2pBBChlnwO3qqlcWCkSU3vLEayEGKoHQ9duLOgobavz0tGgeB0CX4fPghzEHJHvP8+KTRwscZb3v7KxZFgpFl+Hz05oxBih70fTejj4LHG/+8rNqHghBmOP0g4cuBiJ3zPPmlUYMG2W47+ytWhYKRZjh9NScMgcoffP16I4+DBxv/vO0ahAIPZnl9YU2CCN4zvXniD0MGmW58O2tWxgMSJrl9NSeMggnec/16I5ADBtx//O1axEIO5rm9oU4CiN4z/XniUAMG2e68O6uXBgMSZzn9dWfMggoec/16I5ADBty//S2bBEJPJrn9oU5CiR40PXoiUEMHGi88PCtXRkNSp3p9daAbykHKYDQ9eiOQQ0bbv/0tm0RCT2c6PeGOgomec/26JBCDBxpvvHxrlweDE2e6vbXoTMpByqB0PbojUING2//9LZuEQk+nOr3hz0KJYDS9+mPRA0daf3y8bBdHw1Qn+v42KA2KQcrgdH36I9DDx5v//W3bxIKQJ3s+Ik+CiaB0/jokkUNHmz+8/CwYCAOUqDt+dqgNyoIK4HT+OmQRRAfcP/1uHATCkGe7fmLQQsngtP46ZNFDh5s/vTwr2IhDlKh7vndoDoqCCyC1Pnqkkcob//2uXETCkKe7/mMQgsog9T56ZRGDx9t/vTwsmIiD1Oi7/neozsrCi2D1Prrk0gocv/2unQUC0Oe8PqNQwwpiNX66ZVHDx9u//Xxtmgj//8=" type="audio/wav"></audio>
+
+    <script>
+        let medications = [], deferredPrompt, currentImageData = null, medicationHistory = {}, currentAlarmMedication = null, snoozeTimeouts = {};
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Error:', err)); }
+        window.addEventListener('load', () => { loadMedications(); loadMedicationHistory(); checkNotificationPermission(); scheduleAllAlarms(); });
+        document.getElementById('cameraInput').addEventListener('change', handleImageSelect);
+        document.getElementById('galleryInput').addEventListener('change', handleImageSelect);
+        function handleImageSelect(event) { const file = event.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (e) => { currentImageData = e.target.result; document.getElementById('previewImg').src = currentImageData; document.getElementById('previewContainer').style.display = 'block'; }; reader.readAsDataURL(file); } }
+        async function processImage() { if (!currentImageData) return; document.getElementById('loading').style.display = 'block'; try { const { data: { text } } = await Tesseract.recognize(currentImageData, 'por', { logger: m => { if (m.status === 'recognizing text') { console.log(`Processando: ${Math.round(m.progress * 100)}%`); } } }); console.log('Texto extraído:', text); const medication = parseRecipe(text); if (medication && medication.name !== 'Medicamento não identificado') { addMedication(medication); alert('✅ Receita processada! Confira os dados e ajuste se necessário.'); } else { alert('❌ Não consegui ler a receita. Tire uma foto mais clara ou adicione manualmente.'); } } catch (error) { console.error('Erro OCR:', error); alert('❌ Erro ao processar. Tente novamente com melhor iluminação.'); } finally { document.getElementById('loading').style.display = 'none'; document.getElementById('previewContainer').style.display = 'none'; currentImageData = null; } }
+        function parseRecipe(text) { return { id: Date.now(), name: extractMedicationName(text), dosage: extractDosage(text), frequency: extractFrequency(text), duration: extractDuration(text), times: extractTimes(text), startDate: new Date().toISOString().split('T')[0], notes: extractNotes(text) }; }
+        function extractMedicationName(text) { const patterns = [/(?:^|\n)([A-Z][a-záéíóúâêôãõç]+(?:\s+[A-Z][a-záéíóúâêôãõç]+)?)\s*\d+\s*mg/i, /(?:^|\n)([A-Z][a-záéíóúâêôãõç]+(?:\s+[A-Z][a-záéíóúâêôãõç]+)?)\s*-/i]; for (const pattern of patterns) { const match = text.match(pattern); if (match) return match[1].trim(); } return 'Medicamento não identificado'; }
+        function extractDosage(text) { const patterns = [/(\d+\s*(?:comprimido|cápsula|mg|ml|gota|colher)s?)/i, /tomar\s+(\d+[^\.]+)/i]; for (const pattern of patterns) { const match = text.match(pattern); if (match) return match[1].trim(); } return '1 comprimido'; }
+        function extractFrequency(text) { const patterns = [/(\d+\s*(?:em|a cada)\s*\d+\s*horas?)/i, /(\d+\s*(?:x|vezes)\s*ao\s*dia)/i]; for (const pattern of patterns) { const match = text.match(pattern); if (match) return match[1].trim(); } return '8 em 8 horas'; }
+        function extractDuration(text) { const patterns = [/(?:por|durante)\s*(\d+\s*dias?)/i, /(\d+\s*dias?\s*de\s*tratamento)/i]; for (const pattern of patterns) { const match = text.match(pattern); if (match) return match[1].trim(); } return '7 dias'; }
+        function extractTimes(text) { const timePattern = /\b([0-2]?[0-9]):([0-5][0-9])\b/g; const times = []; let match; while ((match = timePattern.exec(text)) !== null) { times.push(`${match[1].padStart(2, '0')}:${match[2]}`); } if (times.length === 0) { if (text.includes('8 em 8') || text.includes('3 vezes')) { return ['08:00', '16:00', '00:00']; } else if (text.includes('12 em 12') || text.includes('2 vezes')) { return ['08:00', '20:00']; } else if (text.includes('6 em 6') || text.includes('4 vezes')) { return ['06:00', '12:00', '18:00', '00:00']; } return ['08:00']; } return times; }
+        function extractNotes(text) { const patterns = [/observa[çc][õo]es?[:\s]+(.+?)(?:\n\n|$)/is, /obs[:\s]+(.+?)(?:\n\n|$)/is]; for (const pattern of patterns) { const match = text.match(pattern); if (match) return match[1].trim(); } if (text.match(/com água|após as refeições|antes de dormir|em jejum/i)) { const match = text.match(/(com água|após as refeições|antes de dormir|em jejum)/i); if (match) return match[1]; } return ''; }
+        function addMedication(med) { medications.push(med); saveMedications(); renderMedications(); scheduleAlarms(med); }
+        function deleteMedication(id) { if (confirm('Deseja remover este medicamento?')) { medications = medications.filter(m => m.id !== id); saveMedications(); renderMedications(); } }
+        let editingMedicationId = null;
+        function toggleManualForm() { const form = document.getElementById('manualForm'); form.classList.toggle('active'); if (form.classList.contains('active')) { if (!editingMedicationId) { clearManualForm(); document.getElementById('medStartDate').value = new Date().toISOString().split('T')[0]; } updateTimeInputs(); } else { editingMedicationId = null; clearManualForm(); } }
+        function clearManualForm() { document.getElementById('medName').value = ''; document.getElementById('medDosage').value = ''; document.getElementById('medFrequency').value = '8h'; document.getElementById('medDuration').value = ''; document.getElementById('medStartDate').value = new Date().toISOString().split('T')[0]; document.getElementById('medNotes').value = ''; document.getElementById('timeInputs').innerHTML = ''; }
+        function updateTimeInputs() { const frequency = document.getElementById('medFrequency').value; const container = document.getElementById('timeInputs'); let defaultTimes = []; switch(frequency) { case '8h': defaultTimes = ['08:00', '16:00', '00:00']; break; case '12h': defaultTimes = ['08:00', '20:00']; break; case '6h': defaultTimes = ['06:00', '12:00', '18:00', '00:00']; break; case '24h': defaultTimes = ['08:00']; break; case 'custom': defaultTimes = ['08:00']; break; } container.innerHTML = ''; defaultTimes.forEach(time => addTimeInput(time)); }
+        function addTimeInput(defaultTime = '08:00') { const container = document.getElementById('timeInputs'); const wrapper = document.createElement('div'); wrapper.className = 'time-input-wrapper'; const input = document.createElement('input'); input.type = 'time'; input.value = defaultTime; input.required = true; const removeBtn = document.createElement('button'); removeBtn.type = 'button'; removeBtn.className = 'remove-time'; removeBtn.textContent = '✕'; removeBtn.onclick = () => wrapper.remove(); wrapper.appendChild(input); wrapper.appendChild(removeBtn); container.appendChild(wrapper); }
+        function getTimeInputValues() { const inputs = document.querySelectorAll('#timeInputs input[type="time"]'); return Array.from(inputs).map(input => input.value).filter(time => time); }
+        function saveManualMedication() { const name = document.getElementById('medName').value.trim(); const dosage = document.getElementById('medDosage').value.trim(); const frequency = document.getElementById('medFrequency').selectedOptions[0].text; const duration = document.getElementById('medDuration').value.trim(); const startDate = document.getElementById('medStartDate').value; const notes = document.getElementById('medNotes').value.trim(); const times = getTimeInputValues(); if (!name || !dosage || !duration || times.length === 0) { alert('❌ Por favor, preencha todos os campos obrigatórios (*)'); return; } const medication = { id: editingMedicationId || Date.now(), name, dosage, frequency, duration, times: times.sort(), startDate, notes }; if (editingMedicationId) { const index = medications.findIndex(m => m.id === editingMedicationId); medications[index] = medication; alert('✅ Medicamento atualizado com sucesso!'); } else { addM
